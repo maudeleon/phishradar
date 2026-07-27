@@ -1,0 +1,35 @@
+{
+  "trained_at": "2026-07-27T02:24:13.173296",
+  "phish_samples": 20,
+  "legit_samples": 20,
+  "accuracy": 0.9,
+  "precision_phish": 1.0,
+  "recall_phish": 0.8,
+  "f1_phish": 0.8889,
+  "confusion_matrix": [
+    [
+      5,
+      0
+    ],
+    [
+      1,
+      4
+    ]
+  ],
+  "feature_importance": {
+    "url_length": 0.1751,
+    "domain_length": 0.0628,
+    "path_length": 0.1028,
+    "subdomain_count": 0.0639,
+    "special_char_count": 0.1383,
+    "domain_entropy": 0.0782,
+    "url_entropy": 0.1178,
+    "digit_ratio": 0.0,
+    "has_ip": 0.0,
+    "has_at_symbol": 0.0,
+    "has_double_slash": 0.0,
+    "suspicious_tld": 0.0673,
+    "brand_impersonation": 0.0085,
+    "suspicious_keyword_count": 0.1852
+  }
+}

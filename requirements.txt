@@ -1,0 +1,12 @@
+# PhishRadar — Capa 1
+# Instalar con: pip install -r requirements.txt
+
+requests==2.32.3      # Descargas HTTP de feeds
+
+# ── Capa 2 (ML) — se agregan después ──────────────────────────────────────
+# scikit-learn
+# pandas
+# numpy
+
+# ── Capa 4 (Dashboard) — se agregan después ───────────────────────────────
+# streamlit

@@ -1,0 +1,31 @@
+*# Entorno virtual
+venv/
+
+# Base de datos (datos locales, no van al repo)
+data/
+
+# Logs
+logs/
+
+# Modelos entrenados (se regeneran con --train)
+models/*.pkl
+
+# Reportes generados
+reports/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# VS Code
+.vscode/
+
+# Variables de entorno (por si agregas API keys después)
+.env
+*.env
+
+# Mac (por si acaso)
+.DS_Store
+EOF
