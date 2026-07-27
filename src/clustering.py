@@ -60,9 +60,19 @@ def extract_infra_signals(url: str) -> dict:
 
 def _estimate_asn_hint(domain: str) -> str:
     """
-    Estima el 'grupo de hosting' por patrones conocidos en el dominio.
-    En producción real se reemplaza con consulta WHOIS/BGP.
+    Obtiene el registrador real del dominio via WHOIS.
+    Si falla (timeout, dominio no existe), usa el método de patrones como fallback.
     """
+    try:
+        import whois
+        data = whois.whois(domain)
+        registrar = data.get("registrar", "") or ""
+        if registrar:
+            return registrar[:40].lower().strip()
+    except Exception:
+        pass
+
+    # Fallback — estimación por patrones si WHOIS falla
     cheap_hosts = {
         ".tk": "freenom", ".ml": "freenom", ".ga": "freenom",
         ".cf": "freenom", ".gq": "freenom",
