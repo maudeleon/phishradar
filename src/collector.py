@@ -65,6 +65,35 @@ def fetch_phishtank() -> list[str]:
         logger.error(f"Error descargando PhishTank: {e}")
         return []
 
+def fetch_urlhaus(auth_key: str) -> list[str]:
+    """
+    Descarga URLs maliciosas recientes de URLhaus (abuse.ch).
+    Requiere Auth-Key gratuito de auth.abuse.ch
+    """
+    url = "https://urlhaus-api.abuse.ch/v1/urls/recent/"
+    headers = {"Auth-Key": auth_key}
+
+    try:
+        logger.info(f"Descargando URLhaus...")
+        resp = requests.post(url, headers=headers, timeout=FETCH_TIMEOUT)
+        resp.raise_for_status()
+
+        data = resp.json()
+        if data.get("query_status") != "ok":
+            logger.warning(f"URLhaus respondió: {data.get('query_status')}")
+            return []
+
+        urls = [
+            entry["url"]
+            for entry in data.get("urls", [])
+            if entry.get("url_status") == "online"
+        ]
+        logger.info(f"URLhaus: {len(urls)} URLs activas descargadas")
+        return urls[:MAX_URLS_PER_RUN]
+
+    except requests.RequestException as e:
+        logger.error(f"Error descargando URLhaus: {e}")
+        return []
 
 def fetch_all() -> dict[str, list[str]]:
     """
@@ -78,6 +107,10 @@ def fetch_all() -> dict[str, list[str]]:
 
     if SOURCES["phishtank"]["enabled"]:
         results["phishtank"] = fetch_phishtank()
+
+    if SOURCES["urlhaus"]["enabled"]:
+        auth_key = SOURCES["urlhaus"]["auth_key"]
+        results["urlhaus"] = fetch_urlhaus(auth_key)
 
     total = sum(len(v) for v in results.values())
     logger.info(f"Total URLs recolectadas: {total} de {len(results)} fuente(s)")

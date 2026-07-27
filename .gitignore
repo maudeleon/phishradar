@@ -29,3 +29,4 @@ __pycache__/
 # Mac (por si acaso)
 .DS_Store
 EOF
+.venv/

@@ -26,6 +26,12 @@ SOURCES = {
         "enabled": False,   # Requiere API key; activar cuando la tengas
         "description": "Dataset validado de PhishTank (requiere key)",
     },
+    "urlhaus": {
+    "url": "https://urlhaus-api.abuse.ch/v1/urls/recent/",
+    "enabled": True,
+    "auth_key": "0c02e7f9e0b784e3c77362456f4ca840dd81c69a632c8943",
+    "description": "URLhaus (abuse.ch) — URLs maliciosas activas",
+},
 }
 
 # ── Marcas latinoamericanas para detección de similitud ─────────────────────
