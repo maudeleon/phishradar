@@ -2,6 +2,13 @@
 # Instalar con: pip install -r requirements.txt
 
 requests==2.32.3      # Descargas HTTP de feeds
+scikit-learn
+pandas
+numpy
+plotly
+scipy
+python-whois
+streamlit
 
 # ── Capa 2 (ML) — se agregan después ──────────────────────────────────────
 # scikit-learn
