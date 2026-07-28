@@ -2,7 +2,7 @@
 PhishRadar — Configuración central
 Edita este archivo para ajustar rutas, fuentes y parámetros.
 """
-
+import os
 from pathlib import Path
 
 # ── Rutas base ──────────────────────────────────────────────────────────────
@@ -29,7 +29,7 @@ SOURCES = {
     "urlhaus": {
     "url": "https://urlhaus-api.abuse.ch/v1/urls/recent/",
     "enabled": True,
-    "auth_key": "0c02e7f9e0b784e3c77362456f4ca840dd81c69a632c8943",
+    "auth_key": os.environ.get("URLHAUS_AUTH_KEY", "0c02e7f9e0b784e3c77362456f4ca840dd81c69a632c8943"),
     "description": "URLhaus (abuse.ch) — URLs maliciosas activas",
 },
 }
