@@ -5,6 +5,7 @@ Convierte URLs crudas en vectores numéricos para el modelo ML.
 
 import re
 import math
+import unicodedata
 from urllib.parse import urlparse
 
 # TLDs frecuentes en phishing (basado en datasets públicos + LATAM)
@@ -26,12 +27,24 @@ SUSPICIOUS_KEYWORDS = [
     "pago", "factura", "declaracion", "renovar",
 ]
 
+from Levenshtein import distance as levenshtein_distance
+
 LATAM_BRANDS = [
     "banrural", "banguat", "bac", "baccredomatic", "scotiabank",
-    "bancolombia", "tigo", "claro", "sat", "igss", "renap",
+    "bancolombia", "promerica", "tigo", "claro", "sat", "igss", "renap",
     "mercadolibre", "mercadopago", "rappi", "uber",
     "paypal", "amazon", "netflix", "facebook", "whatsapp",
     "instagram", "google", "microsoft", "apple",
+]
+
+# Dominios legítimos — nunca marcarlos como suplantación
+LEGITIMATE_DOMAINS = [
+    "google.com", "facebook.com", "instagram.com", "amazon.com",
+    "netflix.com", "microsoft.com", "apple.com", "paypal.com",
+    "mercadolibre.com", "baccredomatic.com",
+    "banrural.com.gt", "tigo.com.gt", "claro.com.gt", "sat.gob.gt",
+    "portal.sat.gob.gt", "igss.org.gt", "youtube.com", "twitter.com",
+    "linkedin.com", "github.com", "whatsapp.com",
 ]
 
 
@@ -73,14 +86,65 @@ def _suspicious_keyword_count(url: str) -> int:
     return sum(1 for kw in SUSPICIOUS_KEYWORDS if kw in url_lower)
 
 
+def _normalize_unicode(text: str) -> str:
+    """
+    Convierte caracteres unicode usados en phishing a su equivalente ASCII.
+    Ejemplo: æ→a, ø→o, ñ→n, ü→u, etc.
+    """
+    replacements = {
+        "æ": "a", "à": "a", "á": "a", "â": "a", "ã": "a", "ä": "a",
+        "è": "e", "é": "e", "ê": "e", "ë": "e",
+        "ì": "i", "í": "i", "î": "i", "ï": "i",
+        "ò": "o", "ó": "o", "ô": "o", "õ": "o", "ö": "o", "ø": "o",
+        "ù": "u", "ú": "u", "û": "u", "ü": "u",
+        "ñ": "n", "ç": "c", "ý": "y",
+        "0": "o", "1": "l", "3": "e", "4": "a", "5": "s", "7": "t",
+    }
+    text = text.lower()
+    for char, replacement in replacements.items():
+        text = text.replace(char, replacement)
+    return text
+
 def _brand_impersonation(url: str, domain: str) -> int:
+    # Si el dominio es legítimo conocido, no es suplantación
+    domain_clean = domain.replace("www.", "")
+    if any(domain_clean == legit or domain_clean.endswith("." + legit) 
+           for legit in LEGITIMATE_DOMAINS):
+        return 0
+
+
+    # Normalizar unicode: æ→a, ñ→n, etc.
+    domain = _normalize_unicode(domain)
+    url = _normalize_unicode(url)
+      
+            
+    """
+    Detecta suplantación de marca incluyendo typosquatting.
+    Usa coincidencia exacta Y distancia de Levenshtein para
+    detectar variantes como banrurall, bænrural, paypa1, etc.
+    """
     target = (url + " " + domain).lower()
     normalized = re.sub(r"[^a-z0-9]", "", target)
+
     for brand in LATAM_BRANDS:
+        # Coincidencia exacta
         if brand in target:
             return 1
-        if re.sub(r"[^a-z0-9]", "", brand) in normalized:
+        brand_clean = re.sub(r"[^a-z0-9]", "", brand)
+        if brand_clean in normalized:
             return 1
+
+        # Typosquatting — distancia de edición
+        # Extraer solo el nombre del dominio sin TLD para comparar
+        domain_name = re.sub(r"[^a-z0-9]", "", domain.split(".")[0])
+        if len(domain_name) >= 4 and len(brand_clean) >= 4:
+            dist = levenshtein_distance(domain_name, brand_clean)
+            # Tolerancia: 1 carácter diferente para marcas cortas,
+            # 2 caracteres para marcas largas
+            threshold = 1 if len(brand_clean) <= 6 else 2
+            if dist <= threshold:
+                return 1
+
     return 0
 
 
