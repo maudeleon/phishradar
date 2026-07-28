@@ -75,7 +75,7 @@ def fetch_urlhaus(auth_key: str) -> list[str]:
 
     try:
         logger.info(f"Descargando URLhaus...")
-        resp = requests.post(url, headers=headers, timeout=FETCH_TIMEOUT)
+        resp = requests.get(url, headers=headers, timeout=FETCH_TIMEOUT)
         resp.raise_for_status()
 
         data = resp.json()

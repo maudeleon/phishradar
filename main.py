@@ -52,10 +52,20 @@ def run_collection():
     logger.info("  PhishRadar — Capa 1  |  Recolección iniciada")
     logger.info("═" * 55)
     init_db()
+
+    # Inicializar Supabase si está disponible
+    from src.cloud_database import init_cloud_db, sync_urls, is_available
+    if is_available():
+        init_cloud_db()
+        logger.info("Supabase conectado ✅")
+    else:
+        logger.info("Supabase no configurado — modo local")
+
     feeds = fetch_all()
     if not feeds:
-        logger.warning("No se obtuvo ninguna URL. Verifica config.py y conexión.")
+        logger.warning("No se obtuvo ninguna URL.")
         return
+
     for source, raw_urls in feeds.items():
         logger.info(f"\n── Procesando fuente: {source} ({len(raw_urls)} URLs) ──")
         run_id = start_run(source)
@@ -63,6 +73,12 @@ def run_collection():
             analyzed = analyze_batch(raw_urls, source)
             total, new = insert_urls(analyzed)
             finish_run(run_id, total, new, status="ok")
+
+            # Sincronizar a Supabase
+            if is_available():
+                sync_urls(analyzed)
+                logger.info(f"[{source}] Sincronizado a Supabase")
+
             logger.info(f"[{source}] Insertadas: {new} nuevas / {total} procesadas")
         except Exception as e:
             finish_run(run_id, 0, 0, status="error")
