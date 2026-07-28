@@ -54,12 +54,22 @@ st.markdown("""
 
 @st.cache_data(ttl=60)
 def load_stats():
+    from src.cloud_database import is_available, get_cloud_stats
+    if is_available():
+        stats = get_cloud_stats()
+        if stats:
+            return stats
     init_db()
     return get_stats()
 
 
 @st.cache_data(ttl=60)
 def load_urls(limit: int = 2000) -> pd.DataFrame:
+    from src.cloud_database import is_available, get_cloud_urls
+    if is_available():
+        rows = get_cloud_urls(limit)
+        if rows:
+            return pd.DataFrame(rows)
     with get_connection() as conn:
         rows = conn.execute(
             """SELECT url, domain, source, first_seen, last_seen,
