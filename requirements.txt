@@ -9,6 +9,7 @@ plotly
 scipy
 python-whois
 streamlit
+python-Levenshtein
 
 # ── Capa 2 (ML) — se agregan después ──────────────────────────────────────
 # scikit-learn
