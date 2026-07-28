@@ -11,7 +11,18 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 # URL de conexión desde variable de entorno
-DB_URL = os.environ.get("SUPABASE_DB_URL")
+def _get_db_url():
+    """Busca la URL de Supabase en variables de entorno o en Streamlit secrets."""
+    url = os.environ.get("SUPABASE_DB_URL")
+    if url:
+        return url
+    try:
+        import streamlit as st
+        return st.secrets.get("SUPABASE_DB_URL")
+    except Exception:
+        return None
+
+DB_URL = _get_db_url()
 
 
 # ── Esquema ───────────────────────────────────────────────────────────────────
