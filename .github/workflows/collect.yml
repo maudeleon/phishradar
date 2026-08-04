@@ -24,6 +24,7 @@ jobs:
       - name: Recolectar URLs y actualizar modelo
         env:
           URLHAUS_AUTH_KEY: ${{ secrets.URLHAUS_AUTH_KEY }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
           python main.py
           python main.py --train
