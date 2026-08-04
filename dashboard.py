@@ -225,6 +225,7 @@ elif page == "🔍 Analizar URL":
         with st.spinner(f"Analizando {len(urls)} URL(s)..."):
             results = predict(urls)
 
+        
         st.divider()
         for r in results:
             score_pct = r["score"] * 100

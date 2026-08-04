@@ -175,26 +175,51 @@ def load_model():
 def predict(urls: list[str]) -> list[dict]:
     """
     Predice si una lista de URLs son phishing o legítimas.
-    Devuelve lista de dicts con url, score, label, y features principales.
+
+    ORDEN DE DECISIÓN (importante):
+    1. Regla dura de typosquatting (src/typosquat.py) — si detecta
+       suplantación de marca, se marca ALTO RIESGO automáticamente,
+       SIN pasar por el modelo ML. El ML con pocos datos de entrenamiento
+       puede diluir esta señal promediándola con otras 13 features débiles;
+       la regla dura no tiene ese problema porque es matemática exacta
+       (Levenshtein, homoglifos, script mixto, etc.), no probabilística.
+    2. Si NO es typosquatting, se usa el modelo ML normalmente para
+       casos ambiguos que no dependen de una marca conocida.
     """
+    from src.typosquat import is_typosquat, typosquat_details
+
     model, scaler = load_model()
 
     features = extract_features_batch(urls)
     df = pd.DataFrame(features).fillna(0)
     X  = scaler.transform(df[feature_names()].values)
 
-    probas  = model.predict_proba(X)[:, 1]   # probabilidad de phishing
+    probas  = model.predict_proba(X)[:, 1]
     labels  = model.predict(X)
 
     results = []
     for url, prob, label, feat in zip(urls, probas, labels, features):
-        results.append({
-            "url":        url,
-            "score":      round(float(prob), 4),     # 0.0 a 1.0
-            "label":      "phishing" if label == 1 else "legítima",
-            "risk":       _risk_level(prob),
-            "top_signals": _top_signals(feat),
-        })
+        es_typosquat = is_typosquat(url)
+
+        if es_typosquat:
+            # Regla dura: bypasea el ML por completo
+            results.append({
+                "url":         url,
+                "score":       1.0,
+                "label":       "phishing",
+                "risk":        "🔴 ALTO",
+                "top_signals": ["⚠️ Typosquatting detectado (regla dura, no ML)"] + _top_signals(feat),
+                "detection_method": "regla_dura",
+            })
+        else:
+            results.append({
+                "url":         url,
+                "score":       round(float(prob), 4),
+                "label":       "phishing" if label == 1 else "legítima",
+                "risk":        _risk_level(prob),
+                "top_signals": _top_signals(feat),
+                "detection_method": "modelo_ml",
+            })
 
     return results
 
