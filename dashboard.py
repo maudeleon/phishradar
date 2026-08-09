@@ -28,16 +28,6 @@ from src.typosquat import refresh_legitimate_domains
 from src.domain_scraper import load_legitimate_domains_from_db
 refresh_legitimate_domains(extra_domains=load_legitimate_domains_from_db())
 
-from src.typosquat import refresh_legitimate_domains, LEGITIMATE_DOMAINS
-from src.domain_scraper import load_legitimate_domains_from_db
-
-_extra = load_legitimate_domains_from_db()
-_total = refresh_legitimate_domains(extra_domains=_extra)
-
-st.write(f"DEBUG — dominios cargados de la DB: {len(_extra)}")
-st.write(f"DEBUG — total en whitelist: {_total}")
-st.write(f"DEBUG — ¿bancoazteca.com.gt está?: {'bancoazteca.com.gt' in LEGITIMATE_DOMAINS}")
-st.write(f"DEBUG — primeros 10: {sorted(LEGITIMATE_DOMAINS)[:10]}")
 
 # ── Configuración de página ───────────────────────────────────────────────────
 
