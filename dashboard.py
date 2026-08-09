@@ -23,6 +23,10 @@ from src.model      import predict, train
 from src.clustering import detect_campaigns
 from src.reporter   import save_campaign_report
 
+#agregada el 8.8.26
+from src.typosquat import refresh_legitimate_domains
+from src.domain_scraper import load_legitimate_domains_from_db
+refresh_legitimate_domains(extra_domains=load_legitimate_domains_from_db())
 
 # ── Configuración de página ───────────────────────────────────────────────────
 

@@ -53,6 +53,7 @@ def run_collection():
     logger.info("═" * 55)
     init_db()
 
+    
     # Inicializar Supabase si está disponible
     from src.cloud_database import init_cloud_db, sync_urls, is_available
     if is_available():
@@ -209,6 +210,14 @@ def run_update(force: bool = False):
     else:
         print(f"\n  ℹ️  Sin cambios: {result['reason']}\n")
 
+def run_scrape_domains(): #agregado el 8-8-26
+    """Scrapea y guarda dominios legítimos (bancos por ahora)."""
+    from src.domain_scraper import sync_bank_domains_to_db
+    logger.info("═" * 55)
+    logger.info("  PhishRadar — Scraping de dominios legítimos")
+    logger.info("═" * 55)
+    resultado = sync_bank_domains_to_db()
+    print(f"\n  ✅ {resultado['total']} dominios de categoría '{resultado['categoria']}' guardados\n")
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 
@@ -216,6 +225,12 @@ if __name__ == "__main__":
     setup_logging()
     logger = logging.getLogger(__name__)
     args = sys.argv[1:]
+
+    # Cargar whitelist dinámica ANTES de cualquier comando 8.8.26
+    from src.typosquat import refresh_legitimate_domains
+    from src.domain_scraper import load_legitimate_domains_from_db
+    total = refresh_legitimate_domains(extra_domains=load_legitimate_domains_from_db())
+    logger.info(f"Whitelist de dominios legítimos cargada: {total} dominios")
 
     if "--stats" in args:
         init_db(); print_stats()
@@ -242,5 +257,7 @@ if __name__ == "__main__":
         run_update(force="--force" in args)
     elif "--history" in args:
         print_update_history()
+    elif "--scrape-domains" in args: #agregado el 8-8-26
+        run_scrape_domains()
     else:
         run_collection()

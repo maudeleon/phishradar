@@ -38,8 +38,12 @@ except ImportError:
 
 
 # ── Dominios legítimos conocidos (whitelist) ──────────────────────────────────
-# Estos NUNCA se marcan como typosquatting de sí mismos.
-LEGITIMATE_DOMAINS = {
+# Este es el SEED — el respaldo de emergencia si la base de datos no está
+# disponible (sin internet, tests offline, o la tabla aún vacía). NO es la
+# fuente de verdad en producción: eso es la tabla `legitimate_domains`,
+# alimentada por scrapers reales (src/domain_scraper.py) que consultan
+# fuentes oficiales (Banguat, y próximamente gobierno/universidades).
+SEED_LEGITIMATE_DOMAINS = {
     "banrural.com.gt", "baccredomatic.com", "bam.com.gt",
     "bancolombia.com", "scotiabank.com.gt",
     "tigo.com.gt", "claro.com.gt",
@@ -51,6 +55,9 @@ LEGITIMATE_DOMAINS = {
     "amazon.com", "netflix.com", "paypal.com", "apple.com",
     "microsoft.com", "twitter.com", "linkedin.com", "github.com",
 }
+
+# Alias por compatibilidad con código/tests existentes que ya usan este nombre.
+LEGITIMATE_DOMAINS = set(SEED_LEGITIMATE_DOMAINS)
 
 # Nombre "core" de cada marca (sin TLD) — se deriva automáticamente
 # de LEGITIMATE_DOMAINS, no se mantiene una segunda lista a mano.
@@ -68,15 +75,54 @@ GENERIC_LABELS = {
     "help", "shop", "store", "info", "news", "blog",
 }
 
-def _brand_cores() -> set[str]:
+def _brand_cores(domains: set[str]) -> set[str]:
+    """
+    Extrae los "nombres core" de cada marca legítima para comparación.
+    Además del label completo (ej. "bancopromerica"), también registra
+    la variante sin el prefijo genérico "banco"/"bank" (ej. "promerica")
+    cuando aplica — porque un atacante frecuentemente omite ese prefijo
+    al registrar el dominio falso (ej. "promerica.com" en vez de
+    "bancopromerica.com"), y sin esto esa variante quedaba completamente
+    desprotegida aunque el nombre completo sí estuviera en la whitelist.
+    """
+    PREFIJOS_BANCARIOS = ("banco", "bank")
     cores = set()
-    for domain in LEGITIMATE_DOMAINS:
+    for domain in domains:
         first_label = domain.split(".")[0]
-        if len(first_label) >= 3 and first_label not in GENERIC_LABELS:
-            cores.add(first_label)
+        if len(first_label) < 3 or first_label in GENERIC_LABELS:
+            continue
+        cores.add(first_label)
+
+        for prefijo in PREFIJOS_BANCARIOS:
+            if first_label.startswith(prefijo) and len(first_label) > len(prefijo):
+                resto = first_label[len(prefijo):]
+                if len(resto) >= 3 and resto not in GENERIC_LABELS:
+                    cores.add(resto)
     return cores
 
-BRAND_CORES = _brand_cores()
+BRAND_CORES = _brand_cores(LEGITIMATE_DOMAINS)
+
+
+def refresh_legitimate_domains(extra_domains: set[str] = None) -> int:
+    """
+    Actualiza la whitelist en tiempo de ejecución, mezclando el seed fijo
+    con dominios adicionales (típicamente cargados desde la base de datos,
+    alimentada por los scrapers). Recalcula BRAND_CORES en consecuencia.
+
+    Se llama explícitamente al arrancar la aplicación real (main.py,
+    dashboard.py) — el import normal del módulo (usado por los tests)
+    NUNCA llama esto, por lo que los tests siguen siendo 100% offline
+    y deterministas, sin depender de la base de datos ni de internet.
+
+    Devuelve la cantidad total de dominios en la whitelist tras la mezcla.
+    """
+    global LEGITIMATE_DOMAINS, BRAND_CORES
+    nuevos = set(SEED_LEGITIMATE_DOMAINS)
+    if extra_domains:
+        nuevos |= {d.lower().strip() for d in extra_domains if d}
+    LEGITIMATE_DOMAINS = nuevos
+    BRAND_CORES = _brand_cores(LEGITIMATE_DOMAINS)
+    return len(LEGITIMATE_DOMAINS)
 
 
 # ── Normalización Unicode genérica (sin diccionario manual) ──────────────────
@@ -145,6 +191,9 @@ SUSPICIOUS_KEYWORDS = [
     "banco", "bank", "oficial", "official", "app", "web", "portal",
     "online", "digital", "virtual", "soporte", "ayuda", "support",
     "cliente", "clientes", "centro", "nuevo", "nueva",
+    # Palabras en español que faltaban — muy comunes en phishing LATAM
+    "seguro", "segura", "verificar", "confirmar", "validar",
+    "restringido", "bloqueado", "bloqueada", "activar", "activacion",
 ]
 
 # El código de país (ej. "gt") se trata aparte del resto de keywords porque
@@ -358,13 +407,23 @@ def is_typosquat(url) -> bool:
                 # (ej. "applepie-recipes.com", "ubertechnologies.com").
                 extra_parece_random = bool(re.search(r"\d", extra)) and len(extra) <= 10
 
+                marca_corta_tld_sospechoso = len(brand) <= 4 and tld_sospechoso
+                # Marca como PREFIJO exacto (no en cualquier posición) + TLD
+                # sospechoso — sin importar longitud de marca. Exigir prefijo
+                # (no solo "contiene") reduce el riesgo de falsos positivos
+                # en dominios que casualmente incluyen la marca en medio de
+                # otra palabra no relacionada.
+                marca_prefijo_tld_sospechoso = variant.startswith(brand) and tld_sospechoso
+
                 if extra_es_corto:
                     return True
                 if extra_tiene_keyword:
                     return True
                 if extra_parece_random:
                     return True
-                if len(brand) <= 4 and tld_sospechoso:
+                if marca_corta_tld_sospechoso:
+                    return True
+                if marca_prefijo_tld_sospechoso:
                     return True
 
     # 4. Imitación de ".com.gt" (u otro ccTLD LATAM) usando GUIONES en vez de
