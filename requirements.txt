@@ -19,3 +19,4 @@ psycopg2-binary
 
 # ── Capa 4 (Dashboard) — se agregan después ───────────────────────────────
 # streamlit
+beautifulsoup4
