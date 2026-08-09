@@ -285,15 +285,21 @@ def sync_bank_domains_to_db() -> dict:
 
 def load_legitimate_domains_from_db() -> set[str]:
     """
-    Carga todos los dominios legítimos guardados en la base de datos local.
-    Se usa al arrancar la aplicación para alimentar refresh_legitimate_domains().
+    Carga todos los dominios legítimos guardados en la base de datos —
+    tanto SQLite local como Supabase. Esto es necesario porque Streamlit
+    Cloud corre con su propio SQLite vacío (se resetea en cada deploy) y
+    solo Supabase persiste entre tu máquina local y la nube. Sin esto,
+    el dashboard público nunca ve los dominios que scrapeaste localmente.
     """
-    import sys
-    from pathlib import Path
-    sys.path.insert(0, str(Path(__file__).parent.parent))
-    from src.database import get_connection
+    dominios = set()
 
+    # SQLite local
     try:
+        import sys
+        from pathlib import Path
+        sys.path.insert(0, str(Path(__file__).parent.parent))
+        from src.database import get_connection
+
         with get_connection() as conn:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS legitimate_domains (
@@ -306,7 +312,31 @@ def load_legitimate_domains_from_db() -> set[str]:
                 )
             """)
             rows = conn.execute("SELECT domain FROM legitimate_domains").fetchall()
-        return {row["domain"] for row in rows}
+        dominios |= {row["domain"] for row in rows}
     except Exception as e:
-        logger.warning(f"No se pudo cargar dominios legítimos de la DB: {e}")
-        return set()
+        logger.warning(f"No se pudo cargar dominios legítimos de SQLite local: {e}")
+
+    # Supabase — necesario para que Streamlit Cloud vea los datos reales
+    try:
+        from src.cloud_database import is_available, get_connection as get_cloud_connection
+        if is_available():
+            conn = get_cloud_connection()
+            with conn.cursor() as cur:
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS legitimate_domains (
+                        id SERIAL PRIMARY KEY,
+                        domain TEXT NOT NULL UNIQUE,
+                        nombre TEXT,
+                        categoria TEXT NOT NULL,
+                        fuente TEXT NOT NULL,
+                        scraped_at TEXT NOT NULL
+                    )
+                """)
+                cur.execute("SELECT domain FROM legitimate_domains")
+                dominios |= {row[0] for row in cur.fetchall()}
+            conn.commit()
+            conn.close()
+    except Exception as e:
+        logger.warning(f"No se pudo cargar dominios legítimos de Supabase: {e}")
+
+    return dominios
