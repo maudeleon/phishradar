@@ -187,6 +187,37 @@ def load_model():
     return model, scaler
 
 
+def save_analyzed_url(url: str, result: dict) -> None:
+    """
+    Guarda el resultado de un análisis manual ("Analizar URL") en la base
+    de datos, para que deje de perderse cada vez. Solo guarda las que
+    salen como phishing — eso alimenta el dashboard y el entrenamiento
+    futuro con casos reales que un humano ya verificó.
+    """
+    if result["label"] != "phishing":
+        return
+    try:
+        from src.analyzer import analyze_url
+        from src.database import insert_urls
+
+        item = analyze_url(url, source="user_submitted")
+        if item:
+            insert_urls([item])
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"No se pudo guardar URL analizada: {e}")
+
+    try:
+        from src.cloud_database import is_available, sync_urls
+        from src.analyzer import analyze_url
+        if is_available():
+            item = analyze_url(url, source="user_submitted")
+            if item:
+                sync_urls([item])
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"No se pudo sincronizar a Supabase: {e}")
+
 def predict(urls: list[str]) -> list[dict]:
     """
     Predice si una lista de URLs son phishing o legítimas.

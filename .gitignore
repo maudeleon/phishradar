@@ -8,7 +8,7 @@ data/
 logs/
 
 # Modelos entrenados (se regeneran con --train)
-models/*.pkl
+#models/*.pkl
 
 # Reportes generados
 reports/

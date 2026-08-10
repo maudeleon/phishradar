@@ -239,6 +239,9 @@ elif page == "🔍 Analizar URL":
         with st.spinner(f"Analizando {len(urls)} URL(s)..."):
             results = predict(urls)
 
+        from src.model import save_analyzed_url
+        for url, r in zip(urls, results):
+            save_analyzed_url(url, r)
         
         st.divider()
         for r in results:
