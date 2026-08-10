@@ -155,3 +155,28 @@ def print_update_history() -> None:
             print(f"     URLs:     {entry['phish_count']:,}")
 
     print("\n" + "═" * 60 + "\n")
+
+def get_training_phish_urls(limit: int = 5000) -> list[str]:
+    """
+    Obtiene URLs phishing reales para entrenar el modelo — intenta primero
+    Supabase (necesario en Streamlit Cloud, donde el SQLite local está
+    vacío), y si no está disponible cae a SQLite local (para uso en tu
+    máquina). Sin esto, el entrenamiento siempre usaba los 20 ejemplos
+    de juguete de PHISH_URLS_SAMPLE, sin importar cuántas URLs reales
+    hubiera en la base de datos.
+    """
+    try:
+        from src.cloud_database import is_available, get_cloud_urls
+        if is_available():
+            rows = get_cloud_urls(limit)
+            urls = [r["url"] for r in rows if r.get("is_active", 1)]
+            if urls:
+                logger.info(f"Entrenando con {len(urls)} URLs reales de Supabase")
+                return urls
+    except Exception as e:
+        logger.warning(f"No se pudo leer de Supabase para entrenar: {e}")
+
+    urls = get_all_phish_urls(limit)
+    if urls:
+        logger.info(f"Entrenando con {len(urls)} URLs reales de SQLite local")
+    return urls

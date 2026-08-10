@@ -23,6 +23,15 @@ from src.model      import predict, train
 from src.clustering import detect_campaigns
 from src.reporter   import save_campaign_report
 
+
+# cambios el 9.8.26
+from src.model import train
+from config import MODELS_DIR
+
+_modelo_path = MODELS_DIR / "phishradar_model.pkl"
+if not _modelo_path.exists():
+    train()
+
 #agregada el 8.8.26
 from src.typosquat import refresh_legitimate_domains
 from src.domain_scraper import load_legitimate_domains_from_db
@@ -401,7 +410,16 @@ elif page == "🤖 Modelo ML":
 
     if st.button("🔄 Entrenar ahora", type="primary"):
         with st.spinner("Entrenando... esto toma unos segundos."):
-            m = train()
+            from src.updater import get_training_phish_urls
+            from src.model import LEGIT_URLS_SAMPLE
+
+            phish_reales = get_training_phish_urls()
+            if len(phish_reales) >= 10:
+                m = train(phish_urls=phish_reales, legit_urls=LEGIT_URLS_SAMPLE)
+                st.caption(f"Entrenado con {len(phish_reales)} URLs reales")
+            else:
+                m = train()
+                st.caption("Pocos datos reales — usando ejemplos de muestra")
         st.success(f"✅ Modelo entrenado — Accuracy: {m['accuracy']:.2%} | F1: {m['f1_phish']:.2%}")
         st.cache_data.clear()
         st.rerun()

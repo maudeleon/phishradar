@@ -98,7 +98,28 @@ def _brand_cores(domains: set[str]) -> set[str]:
                 resto = first_label[len(prefijo):]
                 if len(resto) >= 3 and resto not in GENERIC_LABELS:
                     cores.add(resto)
+
     return cores
+
+
+def _short_brand_cores(domains: set[str]) -> set[str]:
+    """
+    Marcas de exactamente 2 letras (ej. "bi" de bi.com.gt). Se manejan
+    SEPARADAS de BRAND_CORES a propósito: 2 letras es un espacio de
+    colisión demasiado amplio para Levenshtein o colapso de duplicados
+    genérico (hp.com, ge.com, ea.com... son dominios reales sin relación).
+    Solo se comparan por COINCIDENCIA EXACTA tras normalizar variantes de
+    sustitución de dígito conocidas (1->i además de 1->l), nunca por
+    distancia difusa — ver SHORT_BRAND_DIGIT_VARIANTS.
+    """
+    cores = set()
+    for domain in domains:
+        first_label = domain.split(".")[0]
+        if len(first_label) == 2 and first_label not in GENERIC_LABELS:
+            cores.add(first_label)
+    return cores
+
+SHORT_BRAND_CORES = _short_brand_cores(LEGITIMATE_DOMAINS)
 
 BRAND_CORES = _brand_cores(LEGITIMATE_DOMAINS)
 
@@ -116,12 +137,13 @@ def refresh_legitimate_domains(extra_domains: set[str] = None) -> int:
 
     Devuelve la cantidad total de dominios en la whitelist tras la mezcla.
     """
-    global LEGITIMATE_DOMAINS, BRAND_CORES
+    global LEGITIMATE_DOMAINS, BRAND_CORES, SHORT_BRAND_CORES
     nuevos = set(SEED_LEGITIMATE_DOMAINS)
     if extra_domains:
         nuevos |= {d.lower().strip() for d in extra_domains if d}
     LEGITIMATE_DOMAINS = nuevos
     BRAND_CORES = _brand_cores(LEGITIMATE_DOMAINS)
+    SHORT_BRAND_CORES = _short_brand_cores(LEGITIMATE_DOMAINS)
     return len(LEGITIMATE_DOMAINS)
 
 
@@ -178,6 +200,21 @@ def normalize_leetspeak(text: str) -> str:
         "5": "s", "7": "t", "@": "a", "$": "s",
     })
     return text.translate(mapping)
+
+
+def _collapse_repeated_letters(text: str) -> str:
+    """
+    Reduce cualquier letra repetida consecutiva a una sola
+    (ej. "baam" -> "bam"). Se usa para detectar el patrón específico de
+    "letra duplicada" en marcas CORTAS (3 letras, ej. "bam", "sat") donde
+    la distancia de Levenshtein general es demasiado permisiva — "ram",
+    "dam", "ham" están a distancia 1 de "bam" y son palabras reales no
+    relacionadas, así que bajar el umbral de Levenshtein para marcas
+    cortas generaría falsos positivos graves. Colapsar duplicados es una
+    regla mucho más angosta: solo atrapa el patrón de "letra repetida",
+    no cualquier vecino a 1 carácter de distancia.
+    """
+    return re.sub(r"(.)\1+", r"\1", text)
 
 
 SUSPICIOUS_TLDS = {".tk", ".ml", ".ga", ".cf", ".gq", ".xyz", ".top", ".icu"}
@@ -376,7 +413,19 @@ def is_typosquat(url) -> bool:
         normalize_leetspeak(main_label),
         re.sub(r"[-_]", "", main_label),
         re.sub(r"[-_]", "", normalize_leetspeak(main_label)),
+        # Variante alterna: "1" también se usa visualmente como "i", no
+        # solo como "l" — necesaria para marcas cortas como "bi" ("b1").
+        main_label.replace("1", "i"),
+        re.sub(r"[-_]", "", main_label.replace("1", "i")),
     }
+
+    # 3a. Marcas de 2 letras — SOLO coincidencia exacta, nunca difusa
+    # (Levenshtein/colapso), por el riesgo de colisión con dominios cortos
+    # legítimos no relacionados (hp.com, ge.com, etc.)
+    for short_brand in SHORT_BRAND_CORES:
+        for variant in label_variants:
+            if variant == short_brand and main_label != short_brand:
+                return True
 
     for brand in BRAND_CORES:
         for variant in label_variants:
@@ -385,6 +434,14 @@ def is_typosquat(url) -> bool:
 
             if variant == brand:
                 return True
+
+            # Letra duplicada en marca CORTA (ej. "baam" vs "bam") — regla
+            # angosta y segura, no depende de bajar el umbral de Levenshtein
+            # (lo cual generaría falsos positivos con palabras comunes de
+            # 3 letras como "ram", "ham", "dam").
+            if len(brand) == 3 and variant != brand:
+                if _collapse_repeated_letters(variant) == brand:
+                    return True
 
             # Distancia de edición — typosquatting clásico (banrurall, paypa1...)
             if len(brand) >= 4:
