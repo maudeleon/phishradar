@@ -77,6 +77,21 @@ PHISH_URLS_SAMPLE = [
     "http://renap-dpi-renovar.tk/tramite",
 ]
 
+def get_legit_urls_from_whitelist() -> list[str]:
+    """
+    Genera URLs legítimas de entrenamiento a partir de la whitelist real
+    (bancos verificados, no ejemplos inventados). Reemplaza la dependencia
+    de LEGIT_URLS_SAMPLE fijo cuando hay suficientes dominios reales
+    disponibles.
+    """
+    try:
+        from src.typosquat import LEGITIMATE_DOMAINS
+        if len(LEGITIMATE_DOMAINS) >= 15:
+            return [f"https://www.{d}" for d in sorted(LEGITIMATE_DOMAINS)]
+    except Exception:
+        pass
+    return LEGIT_URLS_SAMPLE
+
 
 # ── Entrenamiento ─────────────────────────────────────────────────────────────
 

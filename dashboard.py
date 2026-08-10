@@ -411,15 +411,13 @@ elif page == "🤖 Modelo ML":
     if st.button("🔄 Entrenar ahora", type="primary"):
         with st.spinner("Entrenando... esto toma unos segundos."):
             from src.updater import get_training_phish_urls
-            from src.model import LEGIT_URLS_SAMPLE
+            from src.model import get_legit_urls_from_whitelist
 
-            phish_reales = get_training_phish_urls()
-            if len(phish_reales) >= 10:
-                m = train(phish_urls=phish_reales, legit_urls=LEGIT_URLS_SAMPLE)
-                st.caption(f"Entrenado con {len(phish_reales)} URLs reales")
-            else:
-                m = train()
-                st.caption("Pocos datos reales — usando ejemplos de muestra")
+        phish_reales = get_training_phish_urls()
+        legit_reales = get_legit_urls_from_whitelist()
+        if len(phish_reales) >= 10:
+            m = train(phish_urls=phish_reales, legit_urls=legit_reales)
+            st.caption(f"Entrenado con {len(phish_reales)} phishing reales + {len(legit_reales)} legítimas reales")
         st.success(f"✅ Modelo entrenado — Accuracy: {m['accuracy']:.2%} | F1: {m['f1_phish']:.2%}")
         st.cache_data.clear()
         st.rerun()
