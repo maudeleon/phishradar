@@ -30,7 +30,7 @@ jobs:
           python main.py --train
           python main.py --update
           
-	- name: Configurar Git
+	    - name: Configurar Git
         run: |
           git config user.name "PhishRadar Bot"
           git config user.email "actions@github.com"
