@@ -112,7 +112,33 @@ def risk_badge(score: float) -> str:
         return "🟡 MEDIO"
     return "🟢 BAJO"
 
+def get_urls_for_clustering(limit: int) -> list[str]:
+    """
+    Obtiene URLs reales para el análisis de campañas — intenta primero
+    Supabase (necesario en Streamlit Cloud, donde SQLite local está
+    vacío), y cae a SQLite local si Supabase no está disponible.
+    """
+    try:
+        from src.cloud_database import is_available, get_cloud_urls
+        if is_available():
+            rows = get_cloud_urls(limit)
+            urls = [r["url"] for r in rows if r.get("is_active", 1)]
+            if urls:
+                return urls
+    except Exception as e:
+        logger.warning(f"No se pudo leer de Supabase para clustering: {e}")
 
+    try:
+        with get_connection() as conn:
+            rows = conn.execute(
+                "SELECT url FROM urls WHERE is_active=1 ORDER BY first_seen DESC LIMIT ?",
+                (limit,)
+            ).fetchall()
+        return [r["url"] for r in rows]
+    except Exception as e:
+        logger.warning(f"No se pudo leer de SQLite local: {e}")
+        return []
+    
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 
 with st.sidebar:
@@ -282,12 +308,7 @@ elif page == "🎯 Campañas":
     detectar = st.button("🎯 Detectar campañas", type="primary")
 
     if detectar:
-        with get_connection() as conn:
-            rows = conn.execute(
-                "SELECT url FROM urls WHERE is_active=1 ORDER BY first_seen DESC LIMIT ?",
-                (limit,)
-            ).fetchall()
-        urls = [r["url"] for r in rows]
+        urls = get_urls_for_clustering(limit)
 
         if not urls:
             st.warning("No hay URLs en la DB. Corre `python main.py --demo` primero.")

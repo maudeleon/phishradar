@@ -116,7 +116,20 @@ def run_train():
     logger.info("═" * 55)
     logger.info("  PhishRadar — Capa 2  |  Entrenando modelo ML")
     logger.info("═" * 55)
-    metrics = train()
+
+    from src.updater import get_training_phish_urls
+    from src.model import get_legit_urls_from_whitelist
+
+    phish_reales = get_training_phish_urls()
+    legit_reales = get_legit_urls_from_whitelist()
+
+    if len(phish_reales) >= 10:
+        metrics = train(phish_urls=phish_reales, legit_urls=legit_reales)
+        logger.info(f"Entrenado con {len(phish_reales)} phishing reales + {len(legit_reales)} legítimas reales")
+    else:
+        metrics = train()
+        logger.info("Pocos datos reales — usando ejemplos de muestra")
+
     print("\n" + "═" * 55)
     print("  Resultado del entrenamiento")
     print("═" * 55)
@@ -229,8 +242,7 @@ if __name__ == "__main__":
     # Cargar whitelist dinámica ANTES de cualquier comando 8.8.26
     from src.typosquat import refresh_legitimate_domains
     from src.domain_scraper import load_legitimate_domains_from_db
-    total = refresh_legitimate_domains(extra_domains=load_legitimate_domains_from_db())
-    logger.info(f"Whitelist de dominios legítimos cargada: {total} dominios")
+    refresh_legitimate_domains(extra_domains=load_legitimate_domains_from_db())
 
     if "--stats" in args:
         init_db(); print_stats()
