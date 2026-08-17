@@ -29,8 +29,8 @@ jobs:
           python main.py
           python main.py --train
           python main.py --update
-          
-	    - name: Configurar Git
+
+      - name: Configurar Git
         run: |
           git config user.name "PhishRadar Bot"
           git config user.email "actions@github.com"
@@ -40,10 +40,10 @@ jobs:
           git add models/phishradar_model.pkl models/phishradar_scaler.pkl models/last_metrics.json
           git diff --staged --quiet || git commit -m "auto: modelo reentrenado $(date -u +%Y-%m-%d)"
           git push origin main
-          
+
       - name: Guardar base de datos actualizada
         uses: actions/upload-artifact@v4
         with:
           name: phishradar-db
           path: data/phishradar.db
-          retention-days: 7
+          retention-days: 7 
