@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 # ── Señales de infraestructura ────────────────────────────────────────────────
 
-def extract_infra_signals(url: str) -> dict:
+def extract_infra_signals(url: str, use_whois: bool = True) -> dict:
     """
     Extrae señales de infraestructura compartida de una URL.
     Estas señales complementan las features del modelo ML.
@@ -36,7 +36,7 @@ def extract_infra_signals(url: str) -> dict:
 
     # ASN simulado por rango de IP o patrón de dominio
     # En producción esto se resuelve con python-whois o ipwhois
-    asn_hint = _estimate_asn_hint(domain)
+    asn_hint = _estimate_asn_hint(domain, use_whois=use_whois)
 
     # Hash del path sin parámetros (campañas reusan mismos paths)
     path_clean = re.sub(r"\d+", "N", parsed.path.lower())  # normalizar números
@@ -58,21 +58,25 @@ def extract_infra_signals(url: str) -> dict:
     }
 
 
-def _estimate_asn_hint(domain: str) -> str:
+def _estimate_asn_hint(domain: str, use_whois: bool = True) -> str:
     """
     Obtiene el registrador real del dominio via WHOIS.
     Si falla (timeout, dominio no existe), usa el método de patrones como fallback.
+    Si use_whois=False, se salta la consulta de red directamente (útil quiere
+    entornos como Streamlit Cloud, donde el protocolo WHOIS está bloqueado y
+    cada intento simplemente se queda esperando sin nunca responder).
     """
-    try:
-        import whois
-        data = whois.whois(domain)
-        registrar = data.get("registrar", "") or ""
-        if registrar:
-            return registrar[:40].lower().strip()
-    except Exception:
-        pass
+    if use_whois:
+        try:
+            import whois
+            data = whois.whois(domain)
+            registrar = data.get("registrar", "") or ""
+            if registrar:
+                return registrar[:40].lower().strip()
+        except Exception:
+            pass
 
-    # Fallback — estimación por patrones si WHOIS falla
+    # Fallback — estimación por patrones si WHOIS falla o está desactivado
     cheap_hosts = {
         ".tk": "freenom", ".ml": "freenom", ".ga": "freenom",
         ".cf": "freenom", ".gq": "freenom",
@@ -87,18 +91,17 @@ def _estimate_asn_hint(domain: str) -> str:
         if hint in domain:
             return hint
 
-    return "unknown"
-
+    return "desconocido"
 
 # ── Feature vector para clustering ────────────────────────────────────────────
 
-def build_cluster_vector(url: str) -> np.ndarray:
+def build_cluster_vector(url: str, use_whois: bool = True) -> np.ndarray:
     """
     Construye un vector numérico combinando features ML + señales de infraestructura.
     Este vector es lo que DBSCAN usa para calcular similitud.
     """
     ml_features  = extract_features(url)
-    infra        = extract_infra_signals(url)
+    infra        = extract_infra_signals(url, use_whois=use_whois)
 
     vector = [
         # Features cuantitativas del modelo
@@ -130,6 +133,7 @@ def detect_campaigns(
     urls: list[str],
     eps: float = 1.2,
     min_samples: int = 2,
+    use_whois: bool = True,
 ) -> dict:
     """
     Detecta campañas agrupando URLs por similitud.
@@ -151,7 +155,7 @@ def detect_campaigns(
     valid_urls = []
     for url in urls:
         try:
-            vec = build_cluster_vector(url)
+            vec = build_cluster_vector(url, use_whois=use_whois)
             vectors.append(vec)
             valid_urls.append(url)
         except Exception as e:

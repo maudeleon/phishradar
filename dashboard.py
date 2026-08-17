@@ -315,7 +315,7 @@ elif page == "🎯 Campañas":
             st.stop()
 
         with st.spinner(f"Analizando {len(urls)} URLs..."):
-            result = detect_campaigns(urls, eps=eps, min_samples=min_samples)
+            result = detect_campaigns(urls, eps=eps, min_samples=min_samples, use_whois=False)
             save_campaign_report(result)
 
         summary   = result["summary"]
