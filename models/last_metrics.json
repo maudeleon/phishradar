@@ -1,5 +1,5 @@
 {
-  "trained_at": "2026-11-18T15:22:38.922876",
+  "trained_at": "2026-11-19T15:29:35.072612",
   "phish_samples": 5000,
   "legit_samples": 46,
   "accuracy": 1.0,
@@ -17,19 +17,19 @@
     ]
   ],
   "feature_importance": {
-    "url_length": 0.203,
-    "domain_length": 0.0272,
-    "path_length": 0.3674,
-    "subdomain_count": 0.009,
-    "special_char_count": 0.036,
-    "domain_entropy": 0.0435,
-    "url_entropy": 0.085,
-    "digit_ratio": 0.1606,
-    "has_ip": 0.0565,
+    "url_length": 0.1991,
+    "domain_length": 0.0303,
+    "path_length": 0.3515,
+    "subdomain_count": 0.0098,
+    "special_char_count": 0.057,
+    "domain_entropy": 0.0509,
+    "url_entropy": 0.1039,
+    "digit_ratio": 0.1282,
+    "has_ip": 0.0558,
     "has_at_symbol": 0.0,
     "has_double_slash": 0.0,
-    "suspicious_tld": 0.0004,
-    "brand_impersonation": 0.0036,
-    "suspicious_keyword_count": 0.0078
+    "suspicious_tld": 0.0005,
+    "brand_impersonation": 0.0041,
+    "suspicious_keyword_count": 0.0089
   }
 }
